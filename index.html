@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f46e5">
+    <title>VerbaOffline — Traductor Neuronal EN↔ES Ultra Fluido</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (solo se ejecuta una vez al iniciar, nunca al escribir) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Inter (UI limpia) y Newsreader (diseñada para lectura digital) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+    <script>
+        if (window.tailwind) {
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: {
+                            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                            reading: ['Newsreader', 'Georgia', 'serif']
+                        }
+                    }
+                }
+            };
+        }
+    </script>
+    <style>
+        /* =========================================================
+           VARIABLES DE TEMA PARA MÁXIMO RENDIMIENTO DE LECTURA
+           ========================================================= */
+        :root, html[data-theme="light"] {
+            --bg-page: #f6f7f9;
+            --bg-surface: #ffffff;
+            --bg-surface-alt: #f8fafc;
+            --bg-subtle: #f1f5f9;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --border-subtle: #f1f5f9;
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+            --accent-soft: #eef2ff;
+            --accent-text: #4338ca;
+            --scroll-thumb: #cbd5e1;
+        }
+
+        html[data-theme="sepia"] {
+            --bg-page: #f2ece1;
+            --bg-surface: #fbf8f1;
+            --bg-surface-alt: #f5efe3;
+            --bg-subtle: #ebe2d2;
+            --text-primary: #2b2118;
+            --text-secondary: #5c4b3b;
+            --text-muted: #7c6a58;
+            --border-color: #dfd4c2;
+            --border-subtle: #ece3d3;
+            --accent: #9a5b13;
+            --accent-hover: #7c480d;
+            --accent-soft: #f3e6d3;
+            --accent-text: #854d0e;
+            --scroll-thumb: #cbbba2;
+        }
+
+        html[data-theme="dark"] {
+            --bg-page: #0b0f17;
+            --bg-surface: #121826;
+            --bg-surface-alt: #161e2e;
+            --bg-subtle: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-color: #243045;
+            --border-subtle: #1b2538;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --accent-soft: rgba(99, 102, 241, 0.16);
+            --accent-text: #a5b4fc;
+            --scroll-thumb: #334155;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .t-surface { background-color: var(--bg-surface); }
+        .t-surface-alt { background-color: var(--bg-surface-alt); }
+        .t-subtle { background-color: var(--bg-subtle); }
+        .t-text { color: var(--text-primary); }
+        .t-text-sec { color: var(--text-secondary); }
+        .t-text-muted { color: var(--text-muted); }
+        .t-border { border-color: var(--border-color); }
+        .t-border-subtle { border-color: var(--border-subtle); }
+        .t-accent-bg { background-color: var(--accent); }
+        .t-accent-bg:hover { background-color: var(--accent-hover); }
+        .t-accent-soft { background-color: var(--accent-soft); color: var(--accent-text); }
+
+        .reading-pane {
+            font-size: var(--reading-size, 18px);
+            line-height: 1.75;
+            letter-spacing: -0.005em;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-mode-serif .reading-pane {
+            font-family: 'Newsreader', Georgia, serif;
+            line-height: 1.8;
+        }
+        .font-mode-sans .reading-pane {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        @keyframes shimmerProgress {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+        }
+        .progress-indeterminate {
+            animation: shimmerProgress 1.3s ease-in-out infinite;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 9999px; }
+
+        body.focus-mode .hide-in-focus { display: none !important; }
+        body.focus-mode main { max-width: 1280px; }
+        body.focus-mode .translator-grid { min-height: 62vh; }
+    </style>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col font-mode-sans">
+
+    <!-- ========================================================= -->
+    <!-- BARRA SUPERIOR MINIMALISTA Y CONTROLES DE LECTURA          -->
+    <!-- ========================================================= -->
+    <header class="t-surface border-b t-border sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Marca -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl t-accent-bg flex items-center justify-center text-white shadow-sm">
+                    <i data-lucide="languages" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base font-bold t-text leading-tight tracking-tight">VerbaOffline</h1>
+                        <span id="engine-badge" class="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold t-accent-soft">
+                            Neuronal Local
+                        </span>
+                    </div>
+                    <p class="text-[11px] t-text-muted font-medium">Traductor Neuronal EN ↔ ES &amp; Lectura Fluida</p>
+                </div>
+            </div>
+
+            <!-- Controles de Rendimiento Visual / Lectura -->
+            <div class="flex flex-wrap items-center gap-2">
+                
+                <!-- Selector de Tema -->
+                <div class="flex items-center p-1 rounded-xl t-subtle border t-border" role="group" aria-label="Tema visual">
+                    <button onclick="setTheme('light')" id="theme-btn-light" class="px-2 py-1 rounded-lg text-[11px] font-semibold transition-all">Claro</button>
+                    <button onclick="setTheme('sepia')" id="theme-btn-sepia" class="px-2 py-1 rounded-lg text-[11px] font-semibold transition-all">Sepia</button>
+                    <button onclick="setTheme('dark')" id="theme-btn-dark" class="px-2 py-1 rounded-lg text-[11px] font-semibold transition-all">Oscuro</button>
+                </div>
+
+                <!-- Control de Tipografía -->
+                <div class="hidden md:flex items-center gap-1 p-1 rounded-xl t-subtle border t-border">
+                    <button onclick="adjustFontSize(-2)" class="px-2 py-1 rounded-lg text-xs font-bold t-text-sec hover:t-surface transition-colors" title="Reducir tamaño">A-</button>
+                    <span id="font-size-label" class="text-[11px] font-semibold t-text-muted px-1 min-w-[34px] text-center">18px</span>
+                    <button onclick="adjustFontSize(2)" class="px-2 py-1 rounded-lg text-xs font-bold t-text-sec hover:t-surface transition-colors" title="Aumentar tamaño">A+</button>
+                    <div class="w-px h-4 bg-current opacity-15 mx-0.5"></div>
+                    <button onclick="toggleReadingFont()" id="btn-font-family" class="px-2 py-1 rounded-lg text-[11px] font-semibold t-text-sec hover:t-surface transition-colors">Sans</button>
+                </div>
+
+                <!-- Modo Enfoque -->
+                <button onclick="toggleFocusMode()" id="btn-focus-mode" class="p-2 rounded-xl t-subtle border t-border t-text-sec hover:t-text transition-colors" title="Modo Enfoque de Lectura">
+                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                </button>
+
+                <!-- Botón de Paquetes Offline -->
+                <button onclick="openDownloadModal()" id="btn-packs-header" class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold t-accent-soft border t-border transition-all">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                    <span id="packs-header-label" class="hidden sm:inline">Paquetes Offline</span>
+                    <span id="packs-status-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================================= -->
+    <!-- CONTENIDO PRINCIPAL                                        -->
+    <!-- ========================================================= -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5 transition-all">
+
+        <!-- Banner compacto para descargar paquetes offline -->
+        <div id="offline-setup-banner" class="hide-in-focus rounded-2xl p-4 t-surface border t-border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-start sm:items-center gap-3">
+                <div class="w-10 h-10 rounded-xl t-accent-soft flex items-center justify-center shrink-0">
+                    <i data-lucide="hard-drive-download" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold t-text">Descarga los idiomas una sola vez para traducir 100% Offline</h2>
+                    <p class="text-xs t-text-muted mt-0.5">
+                        Modelos neuronales cuantizados (~45 MB c/u). Se guardan en tu navegador y traducen sin internet.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                <button onclick="downloadAllModels()" class="flex-1 sm:flex-none t-accent-bg text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    Descargar Idiomas
+                </button>
+                <button onclick="document.getElementById('offline-setup-banner').classList.add('hidden')" class="p-2 rounded-xl t-text-muted hover:t-subtle transition-colors" title="Ocultar aviso">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- ÁREA PRINCIPAL DEL TRADUCTOR                               -->
+        <!-- ========================================================= -->
+        <section class="t-surface rounded-2xl border t-border shadow-sm overflow-hidden">
+            
+            <!-- Barra de Idiomas y Estado -->
+            <div class="px-4 sm:px-5 py-3 t-surface-alt border-b t-border flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2 flex-1 min-w-[230px]">
+                    <button id="btn-src-lang" onclick="toggleAutoDetect()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold t-text t-surface border t-border transition-all">
+                        <span id="src-lang-label">Español</span>
+                        <span id="auto-detect-tag" class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md t-accent-soft">Auto</span>
+                    </button>
+
+                    <button onclick="swapLanguages()" class="p-2 rounded-xl t-text-muted hover:t-accent-soft transition-all active:scale-95" title="Intercambiar idiomas">
+                        <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                    </button>
+
+                    <div class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold t-accent-soft">
+                        <span id="tgt-lang-label">Inglés</span>
+                    </div>
+                </div>
+
+                <!-- Controles rápidos -->
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <div id="network-pill" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg t-subtle text-[11px] font-medium t-text-sec">
+                        <span id="network-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span id="network-text">En línea</span>
+                    </div>
+
+                    <label class="flex items-center gap-1.5 cursor-pointer text-xs font-medium t-text-sec t-surface px-2.5 py-1.5 rounded-lg border t-border" title="Aplica las correcciones detectadas antes de traducir">
+                        <input id="opt-autocorrect-before" type="checkbox" checked class="w-3.5 h-3.5 rounded accent-indigo-600">
+                        <span>Autocorregir</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Barra de progreso ultra-delgada no bloqueante -->
+            <div id="top-progress-track" class="h-0.5 w-full bg-transparent overflow-hidden">
+                <div id="top-progress-bar" class="hidden h-full w-1/3 t-accent-bg progress-indeterminate rounded-full"></div>
+            </div>
+
+            <!-- Paneles Dobles -->
+            <div class="translator-grid grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x t-border">
+                
+                <!-- COLUMNA IZQUIERDA: TEXTO ORIGINAL -->
+                <div class="flex flex-col min-h-[280px] sm:min-h-[340px] relative">
+                    <textarea id="source-text" spellcheck="true" placeholder="Escribe o pega aquí tu texto en español o inglés..." class="reading-pane flex-1 w-full p-5 sm:p-7 resize-none border-0 focus:outline-none t-text placeholder:opacity-45 bg-transparent"></textarea>
+                    
+                    <button id="btn-clear" onclick="clearText()" class="hidden absolute top-4 right-4 p-1.5 rounded-lg t-text-muted hover:t-subtle transition-colors" title="Limpiar texto">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+
+                    <!-- Barra inferior izquierda -->
+                    <div class="px-4 sm:px-5 py-2.5 t-surface-alt border-t t-border-subtle flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-1">
+                            <button onclick="speakText('source')" class="p-2 rounded-lg t-text-muted hover:t-accent-soft transition-colors" title="Escuchar original (Offline)">
+                                <i data-lucide="volume-2" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="copyText('source')" class="p-2 rounded-lg t-text-muted hover:t-accent-soft transition-colors" title="Copiar original">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="pasteSampleText()" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold t-text-sec hover:t-accent-soft transition-colors">
+                                Ejemplo
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <span id="char-count" class="text-[11px] t-text-muted font-medium">0 caracteres</span>
+                            <button id="btn-translate" onclick="runTranslation(false)" class="flex items-center gap-1.5 t-accent-bg active:scale-[0.98] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>Traducir</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: LECTURA DE TRADUCCIÓN -->
+                <div class="flex flex-col min-h-[280px] sm:min-h-[340px] t-surface-alt relative">
+                    <div id="target-text" class="reading-pane flex-1 w-full p-5 sm:p-7 t-text whitespace-pre-wrap break-words select-text transition-opacity duration-150">
+                        <span class="t-text-muted opacity-60">La traducción aparecerá aquí en tiempo real...</span>
+                    </div>
+
+                    <!-- Aviso discreto si se usó el diccionario local básico o descarga pendiente -->
+                    <div id="fallback-notice" class="hidden mx-5 mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 flex items-center justify-between gap-2">
+                        <span id="fallback-reason">Usando diccionario básico offline. Descarga el paquete neuronal para máxima precisión.</span>
+                        <button onclick="openDownloadModal()" class="font-bold underline shrink-0">Descargar</button>
+                    </div>
+
+                    <!-- Barra inferior derecha -->
+                    <div class="px-4 sm:px-5 py-2.5 t-surface border-t t-border-subtle flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-1">
+                            <button onclick="speakText('target')" class="p-2 rounded-lg t-text-muted hover:t-accent-soft transition-colors" title="Escuchar traducción (Offline)">
+                                <i data-lucide="volume-2" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="copyText('target')" class="p-2 rounded-lg t-text-muted hover:t-accent-soft transition-colors" title="Copiar traducción">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="toggleFavoriteCurrent()" id="btn-fav" class="p-2 rounded-lg t-text-muted hover:text-amber-500 transition-colors" title="Guardar en favoritos">
+                                <i data-lucide="star" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div id="translation-meta" class="text-[11px] t-text-muted font-medium flex items-center gap-1.5">
+                            <span>Listo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- PANEL DE CORRECTOR ORTOGRÁFICO Y DE ESTILO (OFFLINE)       -->
+        <!-- ========================================================= -->
+        <section class="hide-in-focus t-surface rounded-2xl border t-border shadow-sm p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b t-border-subtle pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+                        <i data-lucide="spell-check" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold t-text flex items-center gap-2">
+                            Corrector de Texto y Estilo
+                            <span id="issues-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600">Sin errores</span>
+                        </h2>
+                        <p class="text-[11px] t-text-muted">Tildes, ortografía, gramática, puntuación (¿ ¡), repeticiones y formato offline.</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="btn-fix-all" onclick="applyAllCorrections()" class="hidden items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all">
+                        <span>Aplicar todas (<span id="fix-all-count">0</span>)</span>
+                    </button>
+                    <button onclick="cleanFormatting()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t-subtle t-text-sec hover:t-text transition-colors">
+                        <i data-lucide="eraser" class="w-3.5 h-3.5"></i>
+                        Limpiar formato
+                    </button>
+                    <button onclick="normalizeCase()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t-subtle t-text-sec hover:t-text transition-colors">
+                        <i data-lucide="case-sensitive" class="w-3.5 h-3.5"></i>
+                        Tipo oración
+                    </button>
+                </div>
+            </div>
+
+            <div id="corrections-list" class="space-y-2">
+                <div class="text-xs t-text-muted flex items-center gap-2 py-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Escribe texto arriba para analizar ortografía, puntuación y estilo al instante.</span>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t t-border-subtle flex flex-wrap items-center justify-between gap-3 text-[11px] t-text-muted">
+                <div class="flex flex-wrap items-center gap-4">
+                    <span id="stat-words" class="font-medium">0 palabras</span>
+                    <span id="stat-sentences" class="font-medium">0 oraciones</span>
+                    <span id="stat-reading" class="font-medium">~0 seg lectura</span>
+                </div>
+                <span id="cache-stats">Caché de oraciones: 0</span>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- HISTORIAL Y FAVORITOS                                      -->
+        <!-- ========================================================= -->
+        <section class="hide-in-focus t-surface rounded-2xl border t-border shadow-sm p-5 space-y-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <button id="tab-hist" onclick="switchHistoryTab('history')" class="px-3 py-1.5 rounded-lg text-xs font-bold t-accent-soft transition-colors">
+                        Historial Reciente
+                    </button>
+                    <button id="tab-fav" onclick="switchHistoryTab('favorites')" class="px-3 py-1.5 rounded-lg text-xs font-bold t-text-muted hover:t-subtle transition-colors">
+                        Favoritos (<span id="fav-count">0</span>)
+                    </button>
+                </div>
+                <button onclick="clearHistory()" class="text-xs t-text-muted hover:text-rose-500 font-medium transition-colors">
+                    Limpiar
+                </button>
+            </div>
+
+            <div id="history-container" class="divide-y t-border-subtle max-h-56 overflow-y-auto">
+                <p class="text-xs t-text-muted py-4 text-center">Tus traducciones recientes se guardan localmente en este dispositivo.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL: GESTOR DE PAQUETES DE IDIOMAS OFFLINE               -->
+    <!-- ========================================================= -->
+    <div id="download-modal" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="t-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border t-border space-y-4">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl t-accent-soft flex items-center justify-center shrink-0">
+                        <i data-lucide="package-check" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold t-text">Paquetes de Idiomas Offline</h3>
+                        <p class="text-xs t-text-muted">Se descargan una sola vez en tu navegador para traducir sin internet.</p>
+                    </div>
+                </div>
+                <button onclick="closeDownloadModal()" class="p-1.5 rounded-lg t-text-muted hover:t-subtle">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Paquete 1: EN -> ES -->
+            <div class="p-4 rounded-xl t-surface-alt border t-border space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <p class="text-sm font-bold t-text">Inglés → Español</p>
+                        <p class="text-[11px] t-text-muted">Modelo neuronal <code>Xenova/opus-mt-en-es</code> (~45 MB)</p>
+                    </div>
+                    <div id="en-es-action"></div>
+                </div>
+                <div id="en-es-progress-wrap" class="hidden space-y-1">
+                    <div class="flex justify-between text-[11px] font-medium t-text-sec gap-2">
+                        <span id="en-es-file" class="truncate">Preparando descarga...</span>
+                        <span id="en-es-pct" class="shrink-0 font-bold">0%</span>
+                    </div>
+                    <div class="w-full t-subtle rounded-full h-2 overflow-hidden">
+                        <div id="en-es-bar" class="t-accent-bg h-2 rounded-full transition-all duration-150" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paquete 2: ES -> EN -->
+            <div class="p-4 rounded-xl t-surface-alt border t-border space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <p class="text-sm font-bold t-text">Español → Inglés</p>
+                        <p class="text-[11px] t-text-muted">Modelo neuronal <code>Xenova/opus-mt-es-en</code> (~45 MB)</p>
+                    </div>
+                    <div id="es-en-action"></div>
+                </div>
+                <div id="es-en-progress-wrap" class="hidden space-y-1">
+                    <div class="flex justify-between text-[11px] font-medium t-text-sec gap-2">
+                        <span id="es-en-file" class="truncate">Preparando descarga...</span>
+                        <span id="es-en-pct" class="shrink-0 font-bold">0%</span>
+                    </div>
+                    <div class="w-full t-subtle rounded-full h-2 overflow-hidden">
+                        <div id="es-en-bar" class="t-accent-bg h-2 rounded-full transition-all duration-150" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado diagnóstico en vivo -->
+            <div id="modal-diagnostic" class="text-[11px] t-text-muted px-3 py-2 rounded-xl t-subtle border t-border-subtle">
+                Estado del motor: listo para descargar.
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <button onclick="clearModelCache()" class="text-xs font-semibold text-rose-500 hover:underline px-2 py-1.5">
+                    Borrar caché descargada
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="downloadAllModels()" class="px-4 py-2 rounded-xl text-xs font-semibold t-accent-bg text-white transition-colors">
+                        Descargar Ambos
+                    </button>
+                    <button onclick="closeDownloadModal()" class="px-4 py-2 rounded-xl text-xs font-semibold t-subtle t-text-sec transition-colors">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de Toasts -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- ========================================================= -->
+    <!-- LÓGICA COMPLETA: MOTOR NEURONAL + CACHÉ + CORRECTOR       -->
+    <!-- ========================================================= -->
+    <script type="module">
+        // ==========================================================
+        // 1. CONFIGURACIÓN DEL MOTOR NEURONAL (TRANSFORMERS.JS)
+        // ==========================================================
+        const MODELS_MAP = {
+            'en-es': 'Xenova/opus-mt-en-es',
+            'es-en': 'Xenova/opus-mt-es-en'
+        };
+
+        const CDN_URLS = [
+            'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js',
+            'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js'
+        ];
+        const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/';
+
+        let tfModule = null;
+        let tfLoadPromise = null;
+        const pipelines = { 'en-es': null, 'es-en': null };
+        const pipelinePromises = { 'en-es': null, 'es-en': null };
+
+        // ==========================================================
+        // 2. ESTADO GLOBAL DE LA APLICACIÓN
+        // ==========================================================
+        const PREFS_KEY = 'verba_offline_prefs_v3';
+        const HIST_KEY = 'verba_offline_history_v3';
+        const FAV_KEY = 'verba_offline_favorites_v3';
+        const READY_KEY = 'verba_offline_models_ready_v3';
+
+        const state = {
+            sourceLang: 'es',
+            targetLang: 'en',
+            autoDetect: true,
+            theme: 'light',
+            fontSize: 18,
+            fontMode: 'sans',
+            focusMode: false,
+            lastTranslation: '',
+            historyTab: 'history',
+            history: [],
+            favorites: [],
+            issues: [],
+            cachedStatus: { 'en-es': false, 'es-en': false },
+            downloading: { 'en-es': false, 'es-en': false },
+            sentenceCache: new Map(), // "pair::sentence" -> translated
+            activeJobId: 0
+        };
+
+        let debounceLintTimer = null;
+        let debounceTranslateTimer = null;
+
+        function escapeRegExp(str) {
+            return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // ==========================================================
+        // 3. CARGA ROBUSTA DE TRANSFORMERS.JS (CON FALLBACK DE CDN)
+        // ==========================================================
+        function setDiagnostic(msg, isError = false) {
+            const el = document.getElementById('modal-diagnostic');
+            if (!el) return;
+            el.textContent = msg;
+            el.className = isError
+                ? 'text-[11px] text-rose-600 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 font-medium'
+                : 'text-[11px] t-text-muted px-3 py-2 rounded-xl t-subtle border t-border-subtle';
+        }
+
+        async function loadTransformersEngine() {
+            if (tfModule) return tfModule;
+            if (tfLoadPromise) return tfLoadPromise;
+
+            tfLoadPromise = (async () => {
+                let lastErr = null;
+                for (const url of CDN_URLS) {
+                    try {
+                        setDiagnostic('Cargando motor neuronal desde CDN...');
+                        const mod = await import(url);
+                        const { env } = mod;
+
+                        env.allowLocalModels = false;
+                        env.allowRemoteModels = true;
+
+                        let canCache = false;
+                        try {
+                            if (typeof caches !== 'undefined') {
+                                await caches.open('transformers-cache');
+                                canCache = true;
+                            }
+                        } catch (_) {
+                            canCache = false;
+                        }
+                        env.useBrowserCache = canCache;
+
+                        if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
+                            env.backends.onnx.wasm.numThreads = 1;
+                            env.backends.onnx.wasm.proxy = false;
+                            env.backends.onnx.wasm.wasmPaths = WASM_CDN;
+                        }
+
+                        tfModule = mod;
+                        setDiagnostic(canCache
+                            ? 'Motor neuronal listo (caché persistente del navegador activada).'
+                            : 'Motor neuronal listo (en memoria; el navegador restringe caché persistente en esta vista).'
+                        );
+                        return mod;
+                    } catch (err) {
+                        lastErr = err;
+                        console.warn('Fallo cargando CDN:', url, err);
+                    }
+                }
+                tfLoadPromise = null;
+                throw lastErr || new Error('No se pudo cargar Transformers.js');
+            })();
+
+            return tfLoadPromise;
+        }
+
+        function formatMB(bytes) {
+            if (!bytes || bytes <= 0) return '';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        async function ensurePipeline(pair) {
+            if (pipelines[pair]) return pipelines[pair];
+            if (pipelinePromises[pair]) return pipelinePromises[pair];
+
+            state.downloading[pair] = true;
+            updatePacksUI();
+
+            const wrap = document.getElementById(`${pair}-progress-wrap`);
+            const fileEl = document.getElementById(`${pair}-file`);
+            const pctEl = document.getElementById(`${pair}-pct`);
+            const barEl = document.getElementById(`${pair}-bar`);
+
+            if (wrap) {
+                wrap.classList.remove('hidden');
+                fileEl.textContent = 'Inicializando motor neuronal...';
+                pctEl.textContent = '0%';
+                barEl.style.width = '3%';
+            }
+
+            pipelinePromises[pair] = (async () => {
+                try {
+                    const mod = await loadTransformersEngine();
+                    const modelId = MODELS_MAP[pair];
+
+                    if (fileEl) fileEl.textContent = `Conectando con ${modelId}...`;
+                    setDiagnostic(`Descargando modelo ${modelId}...`);
+
+                    const translator = await mod.pipeline('translation', modelId, {
+                        quantized: true,
+                        progress_callback: (info) => {
+                            if (!info) return;
+                            const shortFile = info.file ? info.file.split('/').pop() : 'archivo';
+
+                            if (info.status === 'initiate' || info.status === 'download') {
+                                if (fileEl) fileEl.textContent = `Descargando ${shortFile}...`;
+                            } else if (info.status === 'progress') {
+                                const pct = Math.min(100, Math.max(0, Math.round(info.progress || 0)));
+                                const sizeStr = (info.loaded && info.total)
+                                    ? ` (${formatMB(info.loaded)} / ${formatMB(info.total)})`
+                                    : '';
+                                if (fileEl) fileEl.textContent = `${shortFile}${sizeStr}`;
+                                if (pctEl) pctEl.textContent = `${pct}%`;
+                                if (barEl) barEl.style.width = `${Math.max(4, pct)}%`;
+
+                                const meta = document.getElementById('translation-meta');
+                                if (meta && state.downloading[pair]) {
+                                    meta.textContent = `Descargando ${pair.toUpperCase()}: ${pct}%`;
+                                }
+                            } else if (info.status === 'done') {
+                                if (fileEl) fileEl.textContent = `Verificando ${shortFile}...`;
+                                if (barEl) barEl.style.width = '98%';
+                            } else if (info.status === 'ready') {
+                                if (barEl) barEl.style.width = '100%';
+                                if (pctEl) pctEl.textContent = '100%';
+                            }
+                        }
+                    });
+
+                    pipelines[pair] = translator;
+                    state.cachedStatus[pair] = true;
+                    state.downloading[pair] = false;
+                    saveModelReadyFlag(pair, true);
+
+                    if (wrap) wrap.classList.add('hidden');
+                    updatePacksUI();
+                    setDiagnostic(`Paquete ${pair.toUpperCase()} descargado y listo para usar sin conexión.`);
+                    showToast(`Paquete ${pair === 'en-es' ? 'Inglés → Español' : 'Español → Inglés'} listo`, 'success');
+                    return translator;
+                } catch (err) {
+                    state.downloading[pair] = false;
+                    pipelinePromises[pair] = null;
+                    if (wrap) wrap.classList.add('hidden');
+                    updatePacksUI();
+                    const reason = err?.message || String(err);
+                    setDiagnostic(`Error descargando ${pair.toUpperCase()}: ${reason}`, true);
+                    showToast(`Error al descargar ${pair.toUpperCase()}: ${reason}`, 'error');
+                    throw err;
+                }
+            })();
+
+            return pipelinePromises[pair];
+        }
+
+        // ==========================================================
+        // 4. INICIALIZACIÓN Y PREFERENCIAS DE LECTURA
+        // ==========================================================
+        function init() {
+            loadPrefs();
+            loadHistoryAndFavs();
+            applyReadingSettings();
+            updateNetworkStatus();
+            checkCachedModels();
+            updateLangLabels();
+            renderHistory();
+
+            const sourceEl = document.getElementById('source-text');
+            sourceEl.addEventListener('input', handleSourceInput);
+            sourceEl.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    runTranslation(false);
+                }
+            });
+
+            window.addEventListener('online', updateNetworkStatus);
+            window.addEventListener('offline', updateNetworkStatus);
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function loadPrefs() {
+            try {
+                const raw = localStorage.getItem(PREFS_KEY);
+                if (raw) {
+                    const p = JSON.parse(raw);
+                    if (p.theme) state.theme = p.theme;
+                    if (p.fontSize) state.fontSize = p.fontSize;
+                    if (p.fontMode) state.fontMode = p.fontMode;
+                }
+            } catch (_) {}
+        }
+
+        function savePrefs() {
+            try {
+                localStorage.setItem(PREFS_KEY, JSON.stringify({
+                    theme: state.theme,
+                    fontSize: state.fontSize,
+                    fontMode: state.fontMode
+                }));
+            } catch (_) {}
+        }
+
+        function applyReadingSettings() {
+            document.documentElement.setAttribute('data-theme', state.theme);
+            document.documentElement.style.setProperty('--reading-size', `${state.fontSize}px`);
+            document.body.classList.toggle('font-mode-serif', state.fontMode === 'serif');
+            document.body.classList.toggle('font-mode-sans', state.fontMode === 'sans');
+            document.body.classList.toggle('focus-mode', state.focusMode);
+
+            ['light', 'sepia', 'dark'].forEach(t => {
+                const btn = document.getElementById(`theme-btn-${t}`);
+                if (!btn) return;
+                if (t === state.theme) {
+                    btn.className = 'px-2 py-1 rounded-lg text-[11px] font-bold t-surface t-text shadow-xs transition-all';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg text-[11px] font-semibold t-text-muted hover:t-text transition-all';
+                }
+            });
+
+            const sizeLabel = document.getElementById('font-size-label');
+            if (sizeLabel) sizeLabel.textContent = `${state.fontSize}px`;
+            const fontBtn = document.getElementById('btn-font-family');
+            if (fontBtn) fontBtn.textContent = state.fontMode === 'serif' ? 'Serif' : 'Sans';
+        }
+
+        function setTheme(theme) {
+            state.theme = theme;
+            applyReadingSettings();
+            savePrefs();
+        }
+
+        function adjustFontSize(delta) {
+            state.fontSize = Math.min(26, Math.max(14, state.fontSize + delta));
+            applyReadingSettings();
+            savePrefs();
+        }
+
+        function toggleReadingFont() {
+            state.fontMode = state.fontMode === 'sans' ? 'serif' : 'sans';
+            applyReadingSettings();
+            savePrefs();
+        }
+
+        function toggleFocusMode() {
+            state.focusMode = !state.focusMode;
+            applyReadingSettings();
+        }
+
+        function updateNetworkStatus() {
+            const dot = document.getElementById('network-dot');
+            const txt = document.getElementById('network-text');
+            if (!dot || !txt) return;
+            if (navigator.onLine) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+                txt.textContent = 'En línea';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+                txt.textContent = 'Modo Offline';
+            }
+        }
+
+        // ==========================================================
+        // 5. GESTIÓN DE PAQUETES Y CACHÉ OFFLINE
+        // ==========================================================
+        function saveModelReadyFlag(pair, val) {
+            try {
+                const flags = JSON.parse(localStorage.getItem(READY_KEY) || '{}');
+                flags[pair] = val;
+                localStorage.setItem(READY_KEY, JSON.stringify(flags));
+            } catch (_) {}
+        }
+
+        async function checkCachedModels() {
+            try {
+                if (typeof caches !== 'undefined') {
+                    const cache = await caches.open('transformers-cache');
+                    const keys = await cache.keys();
+                    const urls = keys.map(r => r.url);
+                    state.cachedStatus['en-es'] = urls.some(u => u.includes('opus-mt-en-es') && u.includes('.onnx'));
+                    state.cachedStatus['es-en'] = urls.some(u => u.includes('opus-mt-es-en') && u.includes('.onnx'));
+                }
+            } catch (_) {
+                try {
+                    const flags = JSON.parse(localStorage.getItem(READY_KEY) || '{}');
+                    state.cachedStatus['en-es'] = Boolean(flags['en-es'] && pipelines['en-es']);
+                    state.cachedStatus['es-en'] = Boolean(flags['es-en'] && pipelines['es-en']);
+                } catch (__) {}
+            }
+            updatePacksUI();
+        }
+
+        function updatePacksUI() {
+            const bothReady = state.cachedStatus['en-es'] && state.cachedStatus['es-en'];
+            const anyReady = state.cachedStatus['en-es'] || state.cachedStatus['es-en'];
+
+            const dot = document.getElementById('packs-status-dot');
+            const label = document.getElementById('packs-header-label');
+            const banner = document.getElementById('offline-setup-banner');
+
+            if (dot) {
+                dot.className = `w-2 h-2 rounded-full ${bothReady ? 'bg-emerald-500' : (anyReady ? 'bg-indigo-500' : 'bg-amber-500')}`;
+            }
+            if (label) {
+                label.textContent = bothReady ? 'Offline Listo' : (anyReady ? '1/2 Offline' : 'Paquetes Offline');
+            }
+            if (bothReady && banner) {
+                banner.classList.add('hidden');
+            }
+
+            ['en-es', 'es-en'].forEach(pair => {
+                const box = document.getElementById(`${pair}-action`);
+                if (!box) return;
+                if (state.downloading[pair]) {
+                    box.innerHTML = `<span class="text-xs font-semibold t-accent-soft px-2.5 py-1 rounded-lg">Descargando...</span>`;
+                } else if (state.cachedStatus[pair]) {
+                    box.innerHTML = `<span class="text-xs font-semibold text-emerald-600 bg-emerald-500/15 px-2.5 py-1 rounded-lg">Listo Offline</span>`;
+                } else {
+                    box.innerHTML = `<button onclick="downloadModel('${pair}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold t-accent-bg text-white transition-colors">Descargar</button>`;
+                }
+            });
+        }
+
+        function openDownloadModal() {
+            document.getElementById('download-modal').classList.remove('hidden');
+            updatePacksUI();
+        }
+
+        function closeDownloadModal() {
+            document.getElementById('download-modal').classList.add('hidden');
+        }
+
+        async function downloadModel(pair) {
+            if (state.downloading[pair]) return;
+            if (!navigator.onLine && !state.cachedStatus[pair]) {
+                showToast('Necesitas internet una sola vez para descargar este idioma.', 'warning');
+                return;
+            }
+            try {
+                await ensurePipeline(pair);
+            } catch (_) {}
+        }
+
+        async function downloadAllModels() {
+            openDownloadModal();
+            if (!state.cachedStatus['en-es']) {
+                await downloadModel('en-es');
+            }
+            if (!state.cachedStatus['es-en']) {
+                await downloadModel('es-en');
+            }
+        }
+
+        async function clearModelCache() {
+            try {
+                if (typeof caches !== 'undefined') {
+                    await caches.delete('transformers-cache');
+                }
+            } catch (_) {}
+            pipelines['en-es'] = null;
+            pipelines['es-en'] = null;
+            pipelinePromises['en-es'] = null;
+            pipelinePromises['es-en'] = null;
+            state.cachedStatus['en-es'] = false;
+            state.cachedStatus['es-en'] = false;
+            saveModelReadyFlag('en-es', false);
+            saveModelReadyFlag('es-en', false);
+            state.sentenceCache.clear();
+            updateCacheStats();
+            updatePacksUI();
+            setDiagnostic('Caché de modelos borrada.');
+            showToast('Caché eliminada correctamente', 'info');
+        }
+
+        // ==========================================================
+        // 6. DETECCIÓN DE IDIOMA Y TRADUCCIÓN PROGRESIVA FLUIDA
+        // ==========================================================
+        function detectLanguageOffline(text) {
+            const sample = text.toLowerCase();
+            if (/[áéíóúüñ¿¡]/.test(sample)) return 'es';
+
+            const esWords = /(el|la|los|las|un|una|de|del|que|por|para|con|como|pero|más|está|son|fue|hola|gracias|buenos|días|muy|también|cuando|donde|porque|este|esta|eso|todo|todos|hacer|puede|quiero|tengo)/g;
+            const enWords = /(the|and|for|with|that|this|from|have|has|was|were|are|you|your|not|but|what|when|where|how|hello|thanks|good|very|also|about|would|could|should|there|their|they|will|can)/g;
+
+            const esScore = (sample.match(esWords) || []).length;
+            const enScore = (sample.match(enWords) || []).length;
+
+            if (esScore === 0 && enScore === 0) return state.sourceLang;
+            return enScore > esScore ? 'en' : 'es';
+        }
+
+        function updateLangLabels() {
+            document.getElementById('src-lang-label').textContent = state.sourceLang === 'es' ? 'Español' : 'Inglés';
+            document.getElementById('tgt-lang-label').textContent = state.targetLang === 'es' ? 'Español' : 'Inglés';
+            const tag = document.getElementById('auto-detect-tag');
+            if (tag) tag.classList.toggle('hidden', !state.autoDetect);
+        }
+
+        function toggleAutoDetect() {
+            state.autoDetect = !state.autoDetect;
+            updateLangLabels();
+            showToast(state.autoDetect ? 'Detección automática activada' : 'Idioma fijo activado', 'info');
+        }
+
+        function swapLanguages() {
+            const prevSrc = state.sourceLang;
+            state.sourceLang = state.targetLang;
+            state.targetLang = prevSrc;
+            state.autoDetect = false;
+            updateLangLabels();
+
+            const srcEl = document.getElementById('source-text');
+            if (state.lastTranslation.trim()) {
+                srcEl.value = state.lastTranslation;
+                handleSourceInput();
+                runTranslation(false);
+            }
+        }
+
+        function handleSourceInput() {
+            const text = document.getElementById('source-text').value;
+            document.getElementById('char-count').textContent = `${text.length.toLocaleString()} caracteres`;
+            document.getElementById('btn-clear').classList.toggle('hidden', text.length === 0);
+
+            if (!text.trim()) {
+                document.getElementById('target-text').innerHTML = '<span class="t-text-muted opacity-60">La traducción aparecerá aquí en tiempo real...</span>';
+                document.getElementById('fallback-notice').classList.add('hidden');
+                document.getElementById('translation-meta').textContent = 'Listo';
+                state.lastTranslation = '';
+                analyzeAndRenderCorrections('');
+                return;
+            }
+
+            if (state.autoDetect && text.trim().length >= 3) {
+                const detected = detectLanguageOffline(text);
+                if (detected !== state.sourceLang) {
+                    state.sourceLang = detected;
+                    state.targetLang = detected === 'es' ? 'en' : 'es';
+                    updateLangLabels();
+                }
+            }
+
+            clearTimeout(debounceLintTimer);
+            debounceLintTimer = setTimeout(() => {
+                analyzeAndRenderCorrections(text);
+            }, 200);
+
+            clearTimeout(debounceTranslateTimer);
+            const pair = `${state.sourceLang}-${state.targetLang}`;
+            if (pipelines[pair] || state.cachedStatus[pair]) {
+                debounceTranslateTimer = setTimeout(() => {
+                    runTranslation(true);
+                }, 550);
+            }
+        }
+
+        function splitTextIntoStructure(text) {
+            const lines = text.split('\n');
+            const sentences = [];
+            const structure = lines.map(line => {
+                if (!line.trim()) return [];
+                const parts = line.match(/[^.!?]+[.!?]*\s*/g) || [line];
+                const indices = [];
+                for (const p of parts) {
+                    const trimmed = p.trim();
+                    if (trimmed) {
+                        indices.push(sentences.length);
+                        sentences.push(trimmed);
+                    }
+                }
+                return indices;
+            });
+            return { sentences, structure };
+        }
+
+        function setBusyUI(isBusy) {
+            const bar = document.getElementById('top-progress-bar');
+            const target = document.getElementById('target-text');
+            if (bar) bar.classList.toggle('hidden', !isBusy);
+            if (target) target.style.opacity = isBusy ? '0.75' : '1';
+        }
+
+        function yieldFrame() {
+            return new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        async function runTranslation(isAuto = false) {
+            let rawText = document.getElementById('source-text').value;
+            if (!rawText.trim()) {
+                if (!isAuto) showToast('Escribe algo para traducir.', 'warning');
+                return;
+            }
+
+            const autoFix = document.getElementById('opt-autocorrect-before').checked;
+            if (autoFix) {
+                const issues = findTextIssues(rawText, state.sourceLang);
+                if (issues.length > 0) {
+                    rawText = applyIssuesToText(rawText, issues);
+                    if (!isAuto) {
+                        document.getElementById('source-text').value = rawText;
+                        analyzeAndRenderCorrections(rawText);
+                    }
+                }
+            }
+
+            const pair = `${state.sourceLang}-${state.targetLang}`;
+            const jobId = ++state.activeJobId;
+            const startTime = performance.now();
+
+            const fallbackNotice = document.getElementById('fallback-notice');
+            const fallbackReason = document.getElementById('fallback-reason');
+            fallbackNotice.classList.add('hidden');
+
+            const { sentences, structure } = splitTextIntoStructure(rawText);
+            const results = new Array(sentences.length).fill('');
+            const missingIndices = [];
+
+            sentences.forEach((s, idx) => {
+                const key = `${pair}::${s}`;
+                if (state.sentenceCache.has(key)) {
+                    results[idx] = state.sentenceCache.get(key);
+                } else {
+                    missingIndices.push(idx);
+                }
+            });
+
+            const renderCurrent = () => {
+                const out = structure
+                    .map(indices => indices.map(i => results[i] || '...').join(' '))
+                    .join('\n');
+                document.getElementById('target-text').textContent = out;
+                state.lastTranslation = out;
+            };
+
+            if (missingIndices.length === 0) {
+                renderCurrent();
+                document.getElementById('translation-meta').textContent = 'Instantáneo (caché)';
+                if (!isAuto) addToHistory(rawText.trim(), state.lastTranslation.trim(), state.sourceLang, state.targetLang);
+                return;
+            }
+
+            const modelAvailable = Boolean(pipelines[pair] || state.cachedStatus[pair]);
+
+            // Si no hay internet y el modelo no está disponible localmente, usar diccionario básico
+            if (!navigator.onLine && !modelAvailable) {
+                const basic = fallbackDictionaryTranslate(rawText, pair);
+                document.getElementById('target-text').textContent = basic;
+                state.lastTranslation = basic;
+                fallbackReason.textContent = 'Sin internet y sin paquete descargado: usando diccionario básico offline.';
+                fallbackNotice.classList.remove('hidden');
+                document.getElementById('translation-meta').textContent = 'Diccionario básico offline';
+                return;
+            }
+
+            // Si estamos en línea pero el modelo de ~45 MB aún no está descargado,
+            // mostramos primero el diccionario rápido y descargamos el paquete neuronal sin dejar la pantalla vacía
+            if (!modelAvailable) {
+                const quickDraft = fallbackDictionaryTranslate(rawText, pair);
+                document.getElementById('target-text').textContent = quickDraft;
+                state.lastTranslation = quickDraft;
+                fallbackReason.textContent = `Descargando paquete neuronal ${pair.toUpperCase()} (~45 MB) para traducción completa...`;
+                fallbackNotice.classList.remove('hidden');
+            }
+
+            setBusyUI(true);
+            document.getElementById('translation-meta').textContent = pipelines[pair]
+                ? 'Traduciendo...'
+                : 'Descargando paquete neuronal...';
+
+            try {
+                const translator = await ensurePipeline(pair);
+                if (jobId !== state.activeJobId) return;
+
+                fallbackNotice.classList.add('hidden');
+
+                for (let k = 0; k < missingIndices.length; k++) {
+                    if (jobId !== state.activeJobId) return;
+                    const idx = missingIndices[k];
+                    const sentence = sentences[idx];
+
+                    document.getElementById('translation-meta').textContent =
+                        missingIndices.length > 1
+                            ? `Traduciendo (${k + 1}/${missingIndices.length})...`
+                            : 'Traduciendo...';
+
+                    await yieldFrame();
+                    const res = await translator(sentence, { max_new_tokens: 256 });
+                    if (jobId !== state.activeJobId) return;
+
+                    const translated = (res && res[0] && res[0].translation_text) ? res[0].translation_text.trim() : sentence;
+                    results[idx] = translated;
+                    state.sentenceCache.set(`${pair}::${sentence}`, translated);
+                    if (state.sentenceCache.size > 500) {
+                        const firstKey = state.sentenceCache.keys().next().value;
+                        state.sentenceCache.delete(firstKey);
+                    }
+                    updateCacheStats();
+                    renderCurrent();
+                }
+
+                const elapsed = Math.max(1, Math.round(performance.now() - startTime));
+                setBusyUI(false);
+                document.getElementById('translation-meta').textContent =
+                    `Traducido en ${elapsed < 1000 ? elapsed + ' ms' : (elapsed / 1000).toFixed(1) + ' s'}`;
+
+                if (!isAuto && rawText.trim() && state.lastTranslation.trim()) {
+                    addToHistory(rawText.trim(), state.lastTranslation.trim(), state.sourceLang, state.targetLang);
+                }
+            } catch (err) {
+                if (jobId !== state.activeJobId) return;
+                setBusyUI(false);
+                const basic = fallbackDictionaryTranslate(rawText, pair);
+                document.getElementById('target-text').textContent = basic;
+                state.lastTranslation = basic;
+                fallbackReason.textContent = 'No se pudo cargar el modelo neuronal. Usando diccionario básico offline.';
+                fallbackNotice.classList.remove('hidden');
+                document.getElementById('translation-meta').textContent = 'Diccionario básico offline';
+            }
+        }
+
+        function updateCacheStats() {
+            const el = document.getElementById('cache-stats');
+            if (el) el.textContent = `Caché de oraciones: ${state.sentenceCache.size}`;
+        }
+
+        const MINI_DICT_ES_EN = {
+            'hola': 'hello', 'buenos': 'good', 'días': 'morning', 'buenas': 'good', 'tardes': 'afternoon',
+            'noches': 'night', 'gracias': 'thank you', 'por': 'for', 'favor': 'please', 'cómo': 'how',
+            'estás': 'are you', 'bien': 'well', 'muy': 'very', 'sí': 'yes', 'no': 'no',
+            'mundo': 'world', 'tiempo': 'time', 'día': 'day', 'hoy': 'today', 'mañana': 'tomorrow',
+            'ayer': 'yesterday', 'trabajo': 'work', 'casa': 'house', 'agua': 'water', 'libro': 'book',
+            'traductor': 'translator', 'idioma': 'language', 'español': 'Spanish', 'inglés': 'English',
+            'amigo': 'friend', 'vida': 'life', 'amor': 'love', 'familia': 'family',
+            'quiero': 'I want', 'probar': 'to test', 'este': 'this', 'porque': 'because', 'es': 'is',
+            'fácil': 'easy', 'rápido': 'fast', 'usar': 'to use'
+        };
+        const MINI_DICT_EN_ES = Object.fromEntries(Object.entries(MINI_DICT_ES_EN).map(([k, v]) => [v.toLowerCase(), k]));
+
+        function fallbackDictionaryTranslate(text, pair) {
+            const dict = pair === 'es-en' ? MINI_DICT_ES_EN : MINI_DICT_EN_ES;
+            return text.split(/(\s+)/).map(tok => {
+                const clean = tok.toLowerCase().replace(/[.,!?;:¿¡]/g, '');
+                if (dict[clean]) {
+                    const punct = tok.slice(clean.length);
+                    const rep = dict[clean];
+                    const capitalized = tok[0] && tok[0] === tok[0].toUpperCase() ? rep[0].toUpperCase() + rep.slice(1) : rep;
+                    return capitalized + punct;
+                }
+                return tok;
+            }).join('');
+        }
+
+        // ==========================================================
+        // 7. CORRECTOR ORTOGRÁFICO, GRAMATICAL Y DE ESTILO (OFFLINE)
+        // ==========================================================
+        const ES_ACCENT_FIXES = {
+            'tambien': 'también', 'ademas': 'además', 'despues': 'después', 'aqui': 'aquí',
+            'ahi': 'ahí', 'alli': 'allí', 'asi': 'así', 'dia': 'día', 'dias': 'días',
+            'todavia': 'todavía', 'habia': 'había', 'tenia': 'tenía', 'podria': 'podría',
+            'deberia': 'debería', 'seria': 'sería', 'cancion': 'canción', 'informacion': 'información',
+            'traduccion': 'traducción', 'corazon': 'corazón', 'razon': 'razón', 'atencion': 'atención',
+            'solucion': 'solución', 'accion': 'acción', 'educacion': 'educación', 'comunicacion': 'comunicación',
+            'facil': 'fácil', 'dificil': 'difícil', 'rapido': 'rápido', 'rapida': 'rápida',
+            'ingles': 'inglés', 'espanol': 'español', 'pagina': 'página', 'paginas': 'páginas',
+            'numero': 'número', 'numeros': 'números', 'ultimo': 'último', 'ultima': 'última',
+            'proximo': 'próximo', 'proxima': 'próxima', 'musica': 'música', 'publico': 'público',
+            'telefono': 'teléfono', 'tecnologia': 'tecnología', 'ortografia': 'ortografía',
+            'gramatica': 'gramática', 'puntuacion': 'puntuación', 'estan': 'están', 'estas': 'estás',
+            'quiza': 'quizá', 'quizas': 'quizás', 'jamas': 'jamás', 'detras': 'detrás',
+            'porfavor': 'por favor', 'osea': 'o sea', 'aver': 'a ver', 'haver': 'haber',
+            'acer': 'hacer', 'iva': 'iba', 'bamos': 'vamos', 'bienes': 'vienes'
+        };
+
+        const EN_SPELL_FIXES = {
+            'dont': "don't", 'cant': "can't", 'wont': "won't", 'didnt': "didn't",
+            'doesnt': "doesn't", 'isnt': "isn't", 'arent': "aren't", 'wasnt': "wasn't",
+            'werent': "weren't", 'havent': "haven't", 'hasnt': "hasn't", 'couldnt': "couldn't",
+            'shouldnt': "shouldn't", 'wouldnt': "wouldn't", 'im': "I'm", 'ive': "I've",
+            'ill': "I'll", 'id': "I'd", 'youre': "you're", 'theyre': "they're",
+            'teh': 'the', 'recieve': 'receive', 'definately': 'definitely', 'seperate': 'separate',
+            'occured': 'occurred', 'untill': 'until', 'alot': 'a lot', 'becuase': 'because',
+            'tommorow': 'tomorrow', 'wierd': 'weird', 'thier': 'their', 'freind': 'friend',
+            'beleive': 'believe', 'goverment': 'government', 'enviroment': 'environment',
+            'langauge': 'language', 'translaton': 'translation', 'wich': 'which'
+        };
+
+        function matchCase(original, replacement) {
+            if (original === original.toUpperCase() && original.length > 1) return replacement.toUpperCase();
+            if (original[0] === original[0].toUpperCase()) return replacement[0].toUpperCase() + replacement.slice(1);
+            return replacement;
+        }
+
+        function findTextIssues(text, lang) {
+            if (!text || !text.trim()) return [];
+            const issues = [];
+
+            if (/[ 	]{2,}/.test(text)) {
+                issues.push({
+                    type: 'Formato',
+                    label: 'Espacios múltiples detectados',
+                    desc: 'Reduce los espacios repetidos a uno solo.',
+                    apply: (t) => t.replace(/[ 	]{2,}/g, ' ')
+                });
+            }
+
+            const dupRegex = /([a-záéíóúüñ]+)\s+/gi;
+            let m;
+            const seenDup = new Set();
+            while ((m = dupRegex.exec(text)) !== null) {
+                const key = m[1].toLowerCase();
+                if (!seenDup.has(key)) {
+                    seenDup.add(key);
+                    const word = m[1];
+                    const safeWord = escapeRegExp(word);
+                    issues.push({
+                        type: 'Estilo',
+                        label: `Palabra repetida: "${word} ${word}"`,
+                        desc: `Cambiar por "${word}"`,
+                        apply: (t) => t.replace(new RegExp(`\\b(${safeWord})\\s+\\1\\b`, 'gi'), '$1')
+                    });
+                }
+            }
+
+            if (lang === 'es') {
+                const words = text.match(/[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+/g) || [];
+                const seen = new Set();
+                for (const w of words) {
+                    const lower = w.toLowerCase();
+                    if (ES_ACCENT_FIXES[lower] && !seen.has(lower)) {
+                        seen.add(lower);
+                        const fixed = matchCase(w, ES_ACCENT_FIXES[lower]);
+                        const safeW = escapeRegExp(w);
+                        issues.push({
+                            type: 'Ortografía',
+                            label: `"${w}" → "${fixed}"`,
+                            desc: 'Tilde u ortografía estándar en español.',
+                            apply: (t) => t.replace(new RegExp(`\\b${safeW}\\b`, 'g'), fixed)
+                        });
+                    }
+                }
+
+                if (/(^|[.!?\n]\s*)([^¿\n?!]+?\?)/.test(text)) {
+                    issues.push({
+                        type: 'Puntuación',
+                        label: 'Falta signo de apertura "¿"',
+                        desc: 'En español las preguntas llevan "¿" al inicio.',
+                        apply: (t) => t.replace(/(^|[.!?\n]\s*)([^¿\n?!]+?\?)/g, '$1¿$2')
+                    });
+                }
+                if (/(^|[.!?\n]\s*)([^¡\n?!]+?!)/.test(text)) {
+                    issues.push({
+                        type: 'Puntuación',
+                        label: 'Falta signo de apertura "¡"',
+                        desc: 'En español las exclamaciones llevan "¡" al inicio.',
+                        apply: (t) => t.replace(/(^|[.!?\n]\s*)([^¡\n?!]+?!)/g, '$1¡$2')
+                    });
+                }
+            }
+
+            if (lang === 'en') {
+                if (/(could|should|would)\s+of/i.test(text)) {
+                    issues.push({
+                        type: 'Gramática',
+                        label: '"could/should/would of" → "... have"',
+                        desc: 'Forma gramatical correcta en inglés.',
+                        apply: (t) => t.replace(/(could|should|would)\s+of/gi, '$1 have')
+                    });
+                }
+                if (/i/.test(text)) {
+                    issues.push({
+                        type: 'Gramática',
+                        label: 'Pronombre "i" → "I"',
+                        desc: 'El pronombre "I" siempre va en mayúscula en inglés.',
+                        apply: (t) => t.replace(/i/g, 'I')
+                    });
+                }
+                const words = text.match(/[a-zA-Z]+/g) || [];
+                const seen = new Set();
+                for (const w of words) {
+                    const lower = w.toLowerCase();
+                    if (EN_SPELL_FIXES[lower] && !seen.has(lower)) {
+                        seen.add(lower);
+                        const fixed = matchCase(w, EN_SPELL_FIXES[lower]);
+                        const safeW = escapeRegExp(w);
+                        issues.push({
+                            type: 'Ortografía',
+                            label: `"${w}" → "${fixed}"`,
+                            desc: 'Corrección ortográfica o contracción en inglés.',
+                            apply: (t) => t.replace(new RegExp(`\\b${safeW}\\b`, 'g'), fixed)
+                        });
+                    }
+                }
+            }
+
+            if (/(^|[.!?]\s+)([a-záéíóúüñ])/.test(text)) {
+                issues.push({
+                    type: 'Estilo',
+                    label: 'Mayúscula inicial faltante',
+                    desc: 'Inicia cada oración con letra mayúscula.',
+                    apply: (t) => t.replace(/(^|[.!?]\s+)([a-záéíóúüñ])/g, (_, pre, ch) => pre + ch.toUpperCase())
+                });
+            }
+
+            return issues.slice(0, 12);
+        }
+
+        function applyIssuesToText(text, issues) {
+            let out = text;
+            for (const issue of issues) {
+                out = issue.apply(out);
+            }
+            return out;
+        }
+
+        function analyzeAndRenderCorrections(text) {
+            const issues = findTextIssues(text, state.sourceLang);
+            state.issues = issues;
+
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const sentences = text.trim() ? (text.match(/[^.!?]+[.!?]*/g) || []).filter(s => s.trim()).length : 0;
+            const readSec = Math.ceil((words / 200) * 60);
+
+            document.getElementById('stat-words').textContent = `${words.toLocaleString()} palabras`;
+            document.getElementById('stat-sentences').textContent = `${sentences} oraciones`;
+            document.getElementById('stat-reading').textContent = readSec < 60
+                ? `~${readSec} seg lectura`
+                : `~${Math.ceil(readSec / 60)} min lectura`;
+
+            const badge = document.getElementById('issues-badge');
+            const fixAllBtn = document.getElementById('btn-fix-all');
+            const fixAllCount = document.getElementById('fix-all-count');
+            const list = document.getElementById('corrections-list');
+
+            if (issues.length === 0) {
+                badge.textContent = 'Sin errores';
+                badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600';
+                fixAllBtn.classList.add('hidden');
+                fixAllBtn.classList.remove('flex');
+                list.innerHTML = `
+                    <div class="text-xs t-text-muted flex items-center gap-2 py-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>${text.trim() ? '¡Texto limpio! No se detectaron errores ortográficos ni de estilo.' : 'Escribe texto arriba para analizar ortografía, puntuación y estilo al instante.'}</span>
+                    </div>`;
+                return;
+            }
+
+            badge.textContent = `${issues.length} ${issues.length === 1 ? 'sugerencia' : 'sugerencias'}`;
+            badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600';
+            fixAllCount.textContent = issues.length;
+            fixAllBtn.classList.remove('hidden');
+            fixAllBtn.classList.add('flex');
+
+            list.innerHTML = issues.map((iss, idx) => `
+                <div class="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl t-surface-alt border t-border-subtle">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md t-accent-soft">${escapeHtml(iss.type)}</span>
+                            <span class="text-xs font-semibold t-text">${escapeHtml(iss.label)}</span>
+                        </div>
+                        <p class="text-[11px] t-text-muted mt-0.5">${escapeHtml(iss.desc)}</p>
+                    </div>
+                    <button onclick="applySingleCorrection(${idx})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shrink-0">
+                        Corregir
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function applySingleCorrection(index) {
+            const issue = state.issues[index];
+            if (!issue) return;
+            const el = document.getElementById('source-text');
+            el.value = issue.apply(el.value);
+            handleSourceInput();
+            showToast('Corrección aplicada', 'success');
+        }
+
+        function applyAllCorrections() {
+            if (state.issues.length === 0) return;
+            const el = document.getElementById('source-text');
+            el.value = applyIssuesToText(el.value, state.issues);
+            handleSourceInput();
+            showToast('Todas las correcciones aplicadas', 'success');
+        }
+
+        function cleanFormatting() {
+            const el = document.getElementById('source-text');
+            if (!el.value.trim()) return;
+            el.value = el.value
+                .replace(/
+/g, '
+')
+                .replace(/[ 	]+/g, ' ')
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/\s+([.,!?;:])/g, '$1')
+                .trim();
+            handleSourceInput();
+            showToast('Formato limpiado', 'info');
+        }
+
+        function normalizeCase() {
+            const el = document.getElementById('source-text');
+            if (!el.value.trim()) return;
+            const lower = el.value.toLowerCase();
+            el.value = lower.replace(/(^|[.!?]\s+|\n+)([a-záéíóúüñ])/g, (_, pre, ch) => pre + ch.toUpperCase());
+            handleSourceInput();
+            showToast('Convertido a formato tipo oración', 'info');
+        }
+
+        // ==========================================================
+        // 8. UTILIDADES: VOZ OFFLINE, PORTAPAPELES, HISTORIAL
+        // ==========================================================
+        function clearText() {
+            document.getElementById('source-text').value = '';
+            handleSourceInput();
+            document.getElementById('source-text').focus();
+        }
+
+        function pasteSampleText() {
+            const el = document.getElementById('source-text');
+            el.value = state.sourceLang === 'es'
+                ? 'hola, como estas? tambien quiero probar este traductor offline porque es muy facil y rapido de usar.'
+                : 'hello, i could of done this earlier, but teh offline translator is definately very fast and easy to use.';
+            handleSourceInput();
+            runTranslation(false);
+        }
+
+        function speakText(which) {
+            if (!('speechSynthesis' in window)) {
+                showToast('Tu navegador no soporta síntesis de voz local.', 'warning');
+                return;
+            }
+            const text = which === 'source'
+                ? document.getElementById('source-text').value.trim()
+                : state.lastTranslation.trim();
+            if (!text) return;
+
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            const lang = which === 'source' ? state.sourceLang : state.targetLang;
+            utter.lang = lang === 'es' ? 'es-ES' : 'en-US';
+            utter.rate = 0.96;
+            window.speechSynthesis.speak(utter);
+        }
+
+        async function copyText(which) {
+            const text = which === 'source'
+                ? document.getElementById('source-text').value
+                : state.lastTranslation;
+            if (!text.trim()) return;
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    showToast('Copiado al portapapeles', 'success');
+                    return;
+                }
+            } catch (_) {}
+
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast('Copiado al portapapeles', 'success');
+            } catch (_) {
+                showToast('No se pudo copiar', 'error');
+            }
+            document.body.removeChild(ta);
+        }
+
+        function loadHistoryAndFavs() {
+            try {
+                state.history = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+                state.favorites = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            } catch (_) {
+                state.history = [];
+                state.favorites = [];
+            }
+            document.getElementById('fav-count').textContent = state.favorites.length;
+        }
+
+        function addToHistory(src, tgt, sLang, tLang) {
+            const entry = { id: Date.now(), src, tgt, sLang, tLang };
+            state.history = [entry, ...state.history.filter(h => h.src !== src)].slice(0, 25);
+            try { localStorage.setItem(HIST_KEY, JSON.stringify(state.history)); } catch (_) {}
+            renderHistory();
+        }
+
+        function toggleFavoriteCurrent() {
+            const src = document.getElementById('source-text').value.trim();
+            const tgt = state.lastTranslation.trim();
+            if (!src || !tgt) {
+                showToast('Traduce algo primero para guardarlo en favoritos.', 'warning');
+                return;
+            }
+            const exists = state.favorites.some(f => f.src === src && f.tgt === tgt);
+            if (exists) {
+                state.favorites = state.favorites.filter(f => !(f.src === src && f.tgt === tgt));
+                showToast('Eliminado de favoritos', 'info');
+            } else {
+                state.favorites = [{ id: Date.now(), src, tgt, sLang: state.sourceLang, tLang: state.targetLang }, ...state.favorites].slice(0, 40);
+                showToast('Guardado en favoritos', 'success');
+            }
+            try { localStorage.setItem(FAV_KEY, JSON.stringify(state.favorites)); } catch (_) {}
+            document.getElementById('fav-count').textContent = state.favorites.length;
+            renderHistory();
+        }
+
+        function switchHistoryTab(tab) {
+            state.historyTab = tab;
+            const hBtn = document.getElementById('tab-hist');
+            const fBtn = document.getElementById('tab-fav');
+            if (tab === 'history') {
+                hBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold t-accent-soft transition-colors';
+                fBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold t-text-muted hover:t-subtle transition-colors';
+            } else {
+                fBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold t-accent-soft transition-colors';
+                hBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold t-text-muted hover:t-subtle transition-colors';
+            }
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            const items = state.historyTab === 'history' ? state.history : state.favorites;
+            if (!items.length) {
+                container.innerHTML = `<p class="text-xs t-text-muted py-4 text-center">${state.historyTab === 'history' ? 'Tus traducciones recientes aparecerán aquí.' : 'Aún no tienes traducciones en favoritos.'}</p>`;
+                return;
+            }
+            container.innerHTML = items.map((item, idx) => `
+                <div class="py-2.5 flex items-start justify-between gap-3 group">
+                    <button onclick="loadHistoryItem(${idx})" class="text-left flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                            <span class="text-[10px] font-bold uppercase t-accent-soft px-1.5 py-0.5 rounded">${item.sLang} → ${item.tLang}</span>
+                        </div>
+                        <p class="text-xs font-semibold t-text truncate">${escapeHtml(item.src)}</p>
+                        <p class="text-xs t-text-muted truncate">${escapeHtml(item.tgt)}</p>
+                    </button>
+                    <button onclick="removeHistoryItem(${idx})" class="text-[11px] t-text-muted hover:text-rose-500 px-2 py-1 opacity-70 group-hover:opacity-100">
+                        Quitar
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function loadHistoryItem(idx) {
+            const list = state.historyTab === 'history' ? state.history : state.favorites;
+            const item = list[idx];
+            if (!item) return;
+            state.sourceLang = item.sLang;
+            state.targetLang = item.tLang;
+            updateLangLabels();
+            document.getElementById('source-text').value = item.src;
+            document.getElementById('target-text').textContent = item.tgt;
+            state.lastTranslation = item.tgt;
+            handleSourceInput();
+        }
+
+        function removeHistoryItem(idx) {
+            if (state.historyTab === 'history') {
+                state.history.splice(idx, 1);
+                try { localStorage.setItem(HIST_KEY, JSON.stringify(state.history)); } catch (_) {}
+            } else {
+                state.favorites.splice(idx, 1);
+                try { localStorage.setItem(FAV_KEY, JSON.stringify(state.favorites)); } catch (_) {}
+                document.getElementById('fav-count').textContent = state.favorites.length;
+            }
+            renderHistory();
+        }
+
+        function clearHistory() {
+            if (state.historyTab === 'history') {
+                state.history = [];
+                try { localStorage.removeItem(HIST_KEY); } catch (_) {}
+            } else {
+                state.favorites = [];
+                try { localStorage.removeItem(FAV_KEY); } catch (_) {}
+                document.getElementById('fav-count').textContent = '0';
+            }
+            renderHistory();
+            showToast('Lista limpiada', 'info');
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-rose-600 text-white',
+                warning: 'bg-amber-500 text-white',
+                info: 'bg-slate-800 text-white'
+            };
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-lg text-xs font-semibold transition-all duration-300 translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3800);
+        }
+
+        Object.assign(window, {
+            setTheme,
+            adjustFontSize,
+            toggleReadingFont,
+            toggleFocusMode,
+            openDownloadModal,
+            closeDownloadModal,
+            downloadModel,
+            downloadAllModels,
+            clearModelCache,
+            toggleAutoDetect,
+            swapLanguages,
+            clearText,
+            speakText,
+            copyText,
+            pasteSampleText,
+            runTranslation,
+            toggleFavoriteCurrent,
+            applyAllCorrections,
+            applySingleCorrection,
+            cleanFormatting,
+            normalizeCase,
+            switchHistoryTab,
+            clearHistory,
+            loadHistoryItem,
+            removeHistoryItem
+        });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch((err) => {
+                    console.warn('No se pudo registrar sw.js:', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
